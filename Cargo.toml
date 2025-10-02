@@ -1,0 +1,18 @@
+[package]
+name = "rust-censure"
+version = "0.1.0"
+edition = "2024"
+description = "Simple profanity filter."
+license = "MIT"
+repository = "https://github.com/Priler/rust-censure"
+keywords = ["profanity", "censure"]
+
+[dependencies]
+fancy-regex = "0.16.2"
+once_cell = "1.19"
+regex = "1.10"          # used for simple splits; heavy patterns via fancy-regex
+# aho-corasick = "1.1"    # optional, for faster simple replaces (can skip)
+thiserror = "2.0.17"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
