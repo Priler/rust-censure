@@ -1,6 +1,6 @@
 mod censor;
 mod html;
-pub mod lang;
+mod lang;
 mod util;
 mod tests;
 mod structs;

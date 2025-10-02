@@ -1,6 +1,5 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use thiserror::Error;
 use std::sync::RwLock;
 
 use super::structs::*;
@@ -232,7 +231,7 @@ impl Censor {
         info
     }
 
-    /// Fully mirrors Python clean_line() (returns replaced line plus counts) :contentReference[oaicite:12]{index=12}
+    /// returns replaced line plus counts
     pub fn clean_line(&self, line: &str) -> CleanLineResult {
         // Mutable working buffer that accumulates changes
         let mut out = line.to_string();
@@ -294,6 +293,7 @@ impl Censor {
     }
 
     /// Clean an HTML string while preserving tags and replacing bad words with `beep_html`.
+    /// @TODO: Rewrite the implementation, so it'll work with any HTML tags (incl broken etc).
     pub fn clean_html_line(&self, line: &str) -> CleanHtmlResult {
         use crate::html::{tokenize_html, TokType, Token};
 

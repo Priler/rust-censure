@@ -23,7 +23,6 @@ pub fn remove_duplicates(word: &str) -> String {
     out
 }
 
-/// Python: _is_pi_or_e_word (short-circuit punctuation stripping) :contentReference[oaicite:9]{index=9}
 pub fn is_pi_or_e_word(s: &str) -> bool {
     s.contains("2.72") || s.contains("3.14")
 }

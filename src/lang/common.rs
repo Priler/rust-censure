@@ -11,7 +11,7 @@ pub fn translate_similar_chars(s: &str, trans_table: &HashMap<char, char>) -> St
     s.chars().map(|c| trans_table.get(&c).copied().unwrap_or(c)).collect()
 }
 
-/// patterns.PATTERNS_REPLACEMENTS from patterns.py (order matters) :contentReference[oaicite:5]{index=5}
+/// (order matters)
 pub static NORMALIZATION_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
     vec![
         (Regex::new(r"&[Ee][Uu][Mm][Ll];").unwrap(), "е"),
@@ -50,12 +50,14 @@ pub static NORMALIZATION_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(
     ]
 });
 
-/// Simple reusable patterns that your Python uses from lang.common.patterns (not all were in the snippet).
-/// We fill reasonable equivalents here for splitting/cleaning.
 pub static PAT_SPACE: Lazy<regex::Regex>       = Lazy::new(|| regex::Regex::new(r"\s+").unwrap());
-pub static PAT_PUNCT1: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r"[\u200b\p{Cf}]").unwrap()); // zero-widths
-pub static PAT_PUNCT2: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r"[^\p{L}\p{N}<>\s/]+").unwrap());
-pub static PAT_PUNCT3: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r"^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$").unwrap());
-pub static PAT_HTML_TAG: Lazy<regex::Regex>    = Lazy::new(|| regex::Regex::new(r"(?is)<[^>]+>").unwrap());
-pub static PAT_HTML_SPACE: Lazy<regex::Regex>  = Lazy::new(|| regex::Regex::new(r"(?s)^\s*$").unwrap());
-pub static PAT_PREP: Lazy<Regex>               = Lazy::new(|| Regex::new(r"(а[х]?)|(в)|([вмт]ы)|(д[ао])|(же)|(за)").unwrap()); // :contentReference[oaicite:6]{index=6}
+
+pub static PAT_PUNCT1: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"["\-+;.,*?()]+"#).unwrap()); // zero-widths
+pub static PAT_PUNCT2: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"[!:_]+"#).unwrap());
+pub static PAT_PUNCT3: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"["\-+;.,*?()!:_]+"#).unwrap());
+
+pub static PAT_HTML_TAG: Lazy<regex::Regex>    = Lazy::new(|| regex::Regex::new(r#"(<.*?>)|(&[\w]{2,6};)|(<![-]+)|([-]+>)"#).unwrap());
+// pub static PAT_HTML_TAG_OR_SPACER: Lazy<regex::Regex>    = Lazy::new(|| regex::Regex::new(r#"(?P<tag><.*?>)|(?P<spacer>[\s]+)"#).unwrap());
+// pub static PAT_HTML_CSS: Lazy<regex::Regex>  = Lazy::new(|| regex::Regex::new(r"[\w\s}{.#;:\-+]").unwrap());
+pub static PAT_HTML_SPACE: Lazy<regex::Regex>  = Lazy::new(|| regex::Regex::new(r"(?i)&nbsp;").unwrap());
+pub static PAT_PREP: Lazy<Regex>               = Lazy::new(|| Regex::new(r"(а[х]?)|(в)|([вмт]ы)|(д[ао])|(же)|(за)").unwrap());

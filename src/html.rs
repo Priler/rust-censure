@@ -24,7 +24,7 @@ impl Token {
 
         let tag_name = head.split_whitespace().next().unwrap_or("").to_string();
 
-        // spacer check (mirrors Python PAT_HTML_SPACE test) :contentReference[oaicite:10]{index=10}
+        // spacer check (mirrors Python PAT_HTML_SPACE test)
         let kind = if matches!(kind, TokType::TagOpen|TokType::TagClose|TokType::TagSelf)
             && PAT_HTML_SPACE.is_match(raw)
         {
