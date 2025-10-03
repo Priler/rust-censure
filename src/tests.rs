@@ -4,6 +4,17 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
+    fn basic_usage_example() {
+        let en_censor = Censor::new(CensorLang::En).unwrap();
+        let line = "dumb ass";
+        let res = en_censor.clean_line(line);
+
+        assert_eq!(res.line, format!("{0} {0}", en_censor.data.beep));
+        assert_eq!(res.bad_words_count, 2);
+        assert_eq!(res.bad_phrases_count, 0);
+        assert_eq!(res.detected_bad_words, ["dumb", "ass"]);
+    }
+    #[test]
     fn ru_test() {
         let censor = Censor::new(CensorLang::Ru).unwrap();
 
