@@ -22,6 +22,8 @@ let res = en_censor.clean_line(line);
 
 assert_eq!(res.line, format!("{0} {0}", en_censor.data.beep));
 assert_eq!(res.bad_words_count, 2);
+assert_eq!(res.bad_phrases_count, 0);
+assert_eq!(res.detected_bad_words, ["dumb", "ass"]);
 ```
 
 ### Performance benchmark
