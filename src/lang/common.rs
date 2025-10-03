@@ -50,14 +50,14 @@ pub static NORMALIZATION_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(
     ]
 });
 
-pub static PAT_SPACE: Lazy<regex::Regex>       = Lazy::new(|| regex::Regex::new(r"\s+").unwrap());
+pub static PAT_SPACE: Lazy<Regex>       = Lazy::new(|| Regex::new(r"\s+").unwrap());
 
-pub static PAT_PUNCT1: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"["\-+;.,*?()]+"#).unwrap()); // zero-widths
-pub static PAT_PUNCT2: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"[!:_]+"#).unwrap());
-pub static PAT_PUNCT3: Lazy<regex::Regex>      = Lazy::new(|| regex::Regex::new(r#"["\-+;.,*?()!:_]+"#).unwrap());
+pub static PAT_PUNCT1: Lazy<Regex>      = Lazy::new(|| Regex::new(r#"["\-+;.,*?()]+"#).unwrap()); // zero-widths
+pub static PAT_PUNCT2: Lazy<Regex>      = Lazy::new(|| Regex::new(r#"[!:_]+"#).unwrap());
+pub static PAT_PUNCT3: Lazy<Regex>      = Lazy::new(|| Regex::new(r#"["\-+;.,*?()!:_]+"#).unwrap());
 
-pub static PAT_HTML_TAG: Lazy<regex::Regex>    = Lazy::new(|| regex::Regex::new(r#"(<.*?>)|(&[\w]{2,6};)|(<![-]+)|([-]+>)"#).unwrap());
-// pub static PAT_HTML_TAG_OR_SPACER: Lazy<regex::Regex>    = Lazy::new(|| regex::Regex::new(r#"(?P<tag><.*?>)|(?P<spacer>[\s]+)"#).unwrap());
-// pub static PAT_HTML_CSS: Lazy<regex::Regex>  = Lazy::new(|| regex::Regex::new(r"[\w\s}{.#;:\-+]").unwrap());
-pub static PAT_HTML_SPACE: Lazy<regex::Regex>  = Lazy::new(|| regex::Regex::new(r"(?i)&nbsp;").unwrap());
+pub static PAT_HTML_TAG: Lazy<Regex>    = Lazy::new(|| Regex::new(r#"(<.*?>)|(&[\w]{2,6};)|(<![-]+)|([-]+>)"#).unwrap());
+// pub static PAT_HTML_TAG_OR_SPACER: Lazy<Regex>    = Lazy::new(|| Regex::new(r#"(?P<tag><.*?>)|(?P<spacer>[\s]+)"#).unwrap());
+// pub static PAT_HTML_CSS: Lazy<Regex>  = Lazy::new(|| Regex::new(r"[\w\s}{.#;:\-+]").unwrap());
+pub static PAT_HTML_SPACE: Lazy<Regex>  = Lazy::new(|| Regex::new(r"(?i)&nbsp;").unwrap());
 pub static PAT_PREP: Lazy<Regex>               = Lazy::new(|| Regex::new(r"(а[х]?)|(в)|([вмт]ы)|(д[ао])|(же)|(за)").unwrap());

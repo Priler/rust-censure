@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use thiserror::Error;
-use crate::censor::AnyRegex;
 
 #[derive(Debug)]
 pub struct LangData {
@@ -18,13 +17,33 @@ pub struct LangData {
     pub trans_tab: &'static HashMap<char, char>,
 }
 
+impl LangData {
+    pub fn get_beep(&self) -> &str {
+        self.beep
+    }
+
+    pub fn set_beep(&mut self, val: &'static str) -> &str {
+        self.beep = val;
+        self.beep
+    }
+
+    pub fn get_beep_html(&self) -> &str {
+        self.beep_html
+    }
+
+    pub fn set_beep_html(&mut self, val: &'static str) -> &str {
+        self.beep_html = val;
+        self.beep_html
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum CensorLang { Ru, En }
 
 pub struct Censor {
     pub lang: CensorLang,
-    pub data: &'static LangData,
-    pub re_cache: Lazy<RwLock<HashMap<String, AnyRegex>>>
+    pub data: LangData,
+    pub re_cache: Lazy<RwLock<HashMap<String, fancy_regex::Regex>>>
 }
 
 #[derive(Debug, Error)]

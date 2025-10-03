@@ -26,7 +26,7 @@ impl Token {
 
         // spacer check (mirrors Python PAT_HTML_SPACE test)
         let kind = if matches!(kind, TokType::TagOpen|TokType::TagClose|TokType::TagSelf)
-            && PAT_HTML_SPACE.is_match(raw)
+            && PAT_HTML_SPACE.is_match(raw).unwrap_or(false)
         {
             TokType::Spacer
         } else { kind };
@@ -40,6 +40,7 @@ pub fn tokenize_html(line: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut start = 0usize;
     for m in PAT_HTML_TAG.find_iter(line) {
+        let m = m.unwrap();
         let (s, e) = (m.start(), m.end());
         if s > start {
             let text = &line[start..s];
@@ -57,7 +58,9 @@ pub fn tokenize_html(line: &str) -> Vec<Token> {
 fn split_text(text: &str, out: &mut Vec<Token>) {
     // split by whitespace but keep spaces as separate tokens, like Python
     let mut last = 0usize;
-    for m in regex::Regex::new(r"\s+").unwrap().find_iter(text) {
+    for m in fancy_regex::Regex::new(r"\s+").unwrap().find_iter(text) {
+        let m = m.unwrap();
+
         let (s, e) = (m.start(), m.end());
         if s > last {
             out.push(Token { value: text[last..s].to_string(), tag: "".into(), kind: TokType::Word });

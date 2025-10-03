@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use super::LangProvider;
 use crate::structs::LangData;
 
@@ -6,8 +5,8 @@ pub mod data;
 pub struct Ru;
 
 impl LangProvider for Ru {
-    fn data() -> &'static LangData {
-        static DATA: Lazy<LangData> = Lazy::new(|| LangData {
+    fn data() -> LangData {
+        LangData {
             beep: super::common::BEEP,
             beep_html: super::common::BEEP_HTML,
 
@@ -18,8 +17,6 @@ impl LangProvider for Ru {
             bad_semi_phrases: &data::BAD_SEMI_PHRASES,
             bad_phrases: &data::BAD_PHRASES,
             trans_tab: &data::TRANS_TAB
-        });
-
-        &DATA
+        }
     }
 }

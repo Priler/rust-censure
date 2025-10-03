@@ -5,5 +5,5 @@ pub mod en;
 pub(crate) use crate::structs::LangData;
 
 pub trait LangProvider {
-    fn data() -> &'static LangData;
+    fn data() -> LangData;
 }

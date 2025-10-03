@@ -9,24 +9,14 @@ use crate::lang::common::{
 };
 use crate::lang::LangProvider;
 use crate::util::{remove_duplicates, is_pi_or_e_word};
-
-use regex as regex_simple;
-use fancy_regex as regex_fancy;
-
-use crate::util::compile_any;
-
-#[derive(Debug, Clone)]
-pub enum AnyRegex {
-    Simple(regex_simple::Regex),
-    Fancy(regex_fancy::Regex),
-}
+use fancy_regex;
 
 
 impl Censor {
     pub fn new(lang: CensorLang) -> Result<Self, CensorError> {
         let data = match lang {
             CensorLang::Ru => crate::lang::ru::Ru::data(),
-            CensorLang::En => crate::lang::en::En::data(), // implement similar to ru
+            CensorLang::En => crate::lang::en::En::data(),
         };
         Ok(Self { lang, data, re_cache: Lazy::new(|| RwLock::new(HashMap::new())) })
     }
@@ -36,22 +26,91 @@ impl Censor {
         {
             let cache = self.re_cache.read().unwrap();
             if let Some(r) = cache.get(pat) {
-                return match r {
-                    AnyRegex::Simple(r) => r.is_match(text),
-                    AnyRegex::Fancy(r) => r.is_match(text).unwrap_or(false),
-                };
+                return r.is_match(text).unwrap_or(false)
             }
         }
 
         // Compile and cache
-        let r = compile_any(pat).expect("invalid regex");
-        let res = match &r {
-            AnyRegex::Simple(r) => r.is_match(text),
-            AnyRegex::Fancy(r) => r.is_match(text).unwrap_or(false),
-        };
         let mut cache = self.re_cache.write().unwrap();
-        cache.insert(pat.to_string(), r);
+        let r = fancy_regex::Regex::new(pat).expect("invalid regex");
+        let res = r.is_match(text).unwrap_or(false);
+        self.cache_pattern(pat, r, &mut cache); // cache this pattern
         res
+    }
+
+    fn cache_pattern(&self, pat: &str, r: fancy_regex::Regex, cache: &mut std::sync::RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
+        // Check cache
+        if let Some(_) = cache.get(pat) {
+            return // already cached
+        }
+
+        cache.insert(pat.to_string(), r);
+    }
+
+    fn compile_and_cache_pattern(&self, pat: &str, cache: &mut std::sync::RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
+        let r = fancy_regex::Regex::new(pat).expect("invalid regex");
+        self.cache_pattern(pat, r, cache);
+    }
+
+    pub fn precompile_all_patterns(&self) {
+        self.precompile_foul_data();
+        self.precompile_foul_core();
+        self.precompile_bad_phrases();
+        self.precompile_bad_semi_phrases();
+        self.precompile_excludes_core();
+        self.precompile_excludes_data();
+    }
+
+    pub fn precompile_foul_data(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for (_, pats) in self.data.foul_data {
+            for &pat in pats {
+                self.compile_and_cache_pattern(pat, &mut cache);
+            }
+        }
+    }
+
+    pub fn precompile_foul_core(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for (pat, _) in self.data.foul_core {
+            self.compile_and_cache_pattern(pat, &mut cache);
+        }
+    }
+
+    pub fn precompile_bad_phrases(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for &pat in self.data.bad_phrases {
+            self.compile_and_cache_pattern(pat, &mut cache);
+        }
+    }
+
+    pub fn precompile_bad_semi_phrases(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for &pat in self.data.bad_semi_phrases {
+            self.compile_and_cache_pattern(pat, &mut cache);
+        }
+    }
+
+    pub fn precompile_excludes_core(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for (pat, _) in self.data.excludes_core {
+            self.compile_and_cache_pattern(pat, &mut cache);
+        }
+    }
+
+    pub fn precompile_excludes_data(&self) {
+        let mut cache = self.re_cache.write().unwrap();
+
+        for (_, pats) in self.data.excludes_data {
+            for &pat in pats {
+                self.compile_and_cache_pattern(pat, &mut cache);
+            }
+        }
     }
 
     fn replace_all_cached<'a>(&self, pat: &str, text: &'a str, repl: &str) -> Option<String> {
@@ -60,27 +119,12 @@ impl Censor {
             return None;
         }
 
-        // We know it matches; get (or build) the compiled object from the cache.
-        // Reuse the same cache but fetch the compiled form this time.
-        let compiled = {
-            // Try read lock
-            if let Some(r) = self.re_cache.read().unwrap().get(pat) {
-                r.clone()
-            } else {
-                // Compile and store
-                let c = match regex_simple::Regex::new(pat) {
-                    Ok(r)  => AnyRegex::Simple(r),
-                    Err(_) => AnyRegex::Fancy(regex_fancy::Regex::new(pat).expect("invalid regex")),
-                };
-                self.re_cache.write().unwrap().insert(pat.to_string(), c.clone());
-                c
-            }
-        };
+        // read from cache
+        let cache = self.re_cache.read().unwrap();
+        let compiled = cache.get(pat).unwrap();
 
-        let replaced = match &compiled {
-            AnyRegex::Simple(r) => r.replace_all(text, repl).into_owned(),
-            AnyRegex::Fancy(r)  => r.replace_all(text, repl).into_owned(),
-        };
+        // replace
+        let replaced = compiled.replace_all(text, repl).into_owned();
         if replaced == text { None } else { Some(replaced) }
     }
 
@@ -92,6 +136,8 @@ impl Censor {
         let mut out = Vec::new();
 
         for w in PAT_SPACE.split(&step2) {
+            let w = w.unwrap();
+
             if w.is_empty() { continue; }
             if w.chars().count() < 3 && !PAT_PREP.is_match(w).unwrap_or(false) {
                 buf.push_str(w);
@@ -114,6 +160,8 @@ impl Censor {
         let mut out = Vec::new();
 
         for w in PAT_SPACE.split(&step2) {
+            let w = w.unwrap();
+
             if w.is_empty() { continue; }
             if w.chars().count() < 3 {
                 buf.push_str(w);
@@ -333,7 +381,7 @@ impl Censor {
         // Flush the currently accumulated word (and its tag list) into `out`.
         // If the word is bad, we output `pre + beep_html + post`. Otherwise, we output the original tagged text.
         // Optionally append a trailing literal (space/spacer) after flushing.
-        let mut process_spacer = |cw: &mut String,
+        let process_spacer = |cw: &mut String,
                                   ctw: &mut String,
                                   twl: &mut Vec<&Token>,
                                   r: &mut String,
