@@ -12,12 +12,29 @@ use crate::lang::LangProvider;
 use crate::util::{remove_duplicates, is_pi_or_e_word};
 use fancy_regex;
 
-impl<'a, L: LangProvider> Censor<'a, L> {
-    pub fn new(lang: &'a L) -> Result<Self, CensorError> {
+impl Censor {
+    pub fn new(lang: CensorLang) -> Result<Self, CensorError> {
+        match lang {
+            CensorLang::Ru => {
+                let lang = Arc::new(crate::lang::ru::Ru {});
+                Censor::from(lang)
+            },
+            CensorLang::En => {
+                let lang = Arc::new(crate::lang::en::En {});
+                Censor::from(lang)
+            },
+        }
+    }
+
+    pub fn from<L>(lang: Arc<L>) -> Result<Self, CensorError>
+    where
+        L: LangProvider + Send + Sync + 'static,
+    {
+        let data = lang.data();
         Ok(Self {
-            lang: &lang,
-            data: lang.data(),
-            re_cache: Lazy::new(|| Arc::new(RwLock::new(HashMap::with_capacity(1000))))
+            lang,
+            data,
+            re_cache: Lazy::new(|| Arc::new(RwLock::new(HashMap::with_capacity(100))))
         })
     }
 
@@ -117,7 +134,7 @@ impl<'a, L: LangProvider> Censor<'a, L> {
         }
     }
 
-    fn replace_all_cached(&self, pat: &str, text: &'a str, repl: &str) -> Option<String> {
+    fn replace_all_cached(&self, pat: &str, text: &str, repl: &str) -> Option<String> {
         // Quick negative guard: if it doesn't match, skip compiling/allocating a String for replace.
         if !self.is_match_cached(pat, text) {
             return None;

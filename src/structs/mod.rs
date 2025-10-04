@@ -38,12 +38,12 @@ impl LangData {
         self.beep_html
     }
 }
-//
-// #[derive(Clone, Copy, Debug)]
-// pub enum CensorLang { Ru, En }
 
-pub struct Censor<'a, L: LangProvider> {
-    pub lang: &'a L,
+#[derive(Clone, Copy, Debug)]
+pub enum CensorLang { Ru, En }
+
+pub struct Censor {
+    pub lang: Arc<dyn LangProvider + Send + Sync + 'static>,
     pub data: LangData,
     pub re_cache: Lazy<Arc<RwLock<HashMap<String, fancy_regex::Regex>>>>
 }

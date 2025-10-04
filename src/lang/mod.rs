@@ -2,6 +2,7 @@ pub mod common;
 pub mod ru;
 pub mod en;
 
+use std::sync::Arc;
 pub(crate) use crate::structs::LangData;
 
 pub trait LangProvider {

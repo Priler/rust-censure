@@ -1,9 +1,16 @@
+use std::sync::Arc;
 use crate::lang::common::{PAT_PUNCT1, PAT_PUNCT2, PAT_SPACE};
 use super::LangProvider;
 use crate::structs::LangData;
 
 mod data;
 pub struct En;
+
+impl En {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {})
+    }
+}
 
 impl LangProvider for En {
     fn data(&self) -> LangData {

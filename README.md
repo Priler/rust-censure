@@ -14,11 +14,12 @@ Some tweaks were implemented.
 
 ### Basic usage example:
 ```rust
-use rust_censure::{Censor};
-use rust_censure::lang::{en::En};
+use rust_censure::{Censor, CensorLang};
+use rust_censure::lang::{en::Ru}; // say that's your custom language
 
-let en = En {}; // create a lang provider first
-let censor = Censor::new(&en).unwrap();
+let censor = Censor::new(CensorLang::En).unwrap(); // make Censor from default language providers
+let ru_censor = Censor::from(Ru::new()).unwrap(); // or make it from your custom language provider
+
 let line = "dumb ass";
 let res = censor.clean_line(line);
 
