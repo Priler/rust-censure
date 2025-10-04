@@ -1,4 +1,4 @@
-use crate::lang::common::{PAT_HTML_TAG, PAT_HTML_SPACE};
+use crate::lang::common::{PAT_HTML_TAG, PAT_HTML_SPACE, PAT_SPACE};
 
 #[derive(Debug, Clone)]
 pub enum TokType { Word, Space, TagOpen, TagClose, TagSelf, Spacer }
@@ -58,7 +58,7 @@ pub fn tokenize_html(line: &str) -> Vec<Token> {
 fn split_text(text: &str, out: &mut Vec<Token>) {
     // split by whitespace but keep spaces as separate tokens, like Python
     let mut last = 0usize;
-    for m in fancy_regex::Regex::new(r"\s+").unwrap().find_iter(text) {
+    for m in PAT_SPACE.find_iter(text) {
         let m = m.unwrap();
 
         let (s, e) = (m.start(), m.end());

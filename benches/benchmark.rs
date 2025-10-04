@@ -2,7 +2,8 @@ use std::hint::black_box;
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, Throughput, SamplingMode
 };
-use rust_censure::{Censor, CensorLang};
+use rust_censure::{Censor};
+use rust_censure::lang::{en::En, ru::Ru};
 
 fn get_bench_cases() -> [(&'static str, &'static str); 3] {
     [
@@ -13,7 +14,8 @@ fn get_bench_cases() -> [(&'static str, &'static str); 3] {
 }
 
 fn bench_censor(c: &mut Criterion) {
-    let en = Censor::new(CensorLang::En).unwrap();
+    let en = En {}; // create a lang provider first
+    let en = Censor::new(&en).unwrap();
 
     let cases = get_bench_cases();
 
@@ -35,7 +37,8 @@ fn bench_censor(c: &mut Criterion) {
 }
 
 fn bench_censor_pre_compiled(c: &mut Criterion) {
-    let en = Censor::new(CensorLang::En).unwrap();
+    let en = En {}; // create a lang provider first
+    let en = Censor::new(&en).unwrap();
     en.precompile_all_patterns(); // force pre-compile all patterns
 
     let cases = get_bench_cases();

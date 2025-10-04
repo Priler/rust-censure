@@ -14,16 +14,18 @@ Some tweaks were implemented.
 
 ### Basic usage example:
 ```rust
-use rust_censure::{Censor, CensorLang};
+use rust_censure::{Censor};
+use rust_censure::lang::{en::En};
 
-let en_censor = Censor::new(CensorLang::En).unwrap();
+let en = En {}; // create a lang provider first
+let censor = Censor::new(&en).unwrap();
 let line = "dumb ass";
-let res = en_censor.clean_line(line);
+let res = censor.clean_line(line);
 
-assert_eq!(res.line, format!("{0} {0}", en_censor.data.beep));
+assert_eq!(res.line, format!("{0} {0}", censor.data.beep));
 assert_eq!(res.bad_words_count, 2);
 assert_eq!(res.bad_phrases_count, 0);
-assert_eq!(res.detected_bad_words, ["dumb", "ass"]);
+assert!(res.detected_bad_words.iter().map(|b| b.as_ref()).eq(["dumb", "ass"]));
 ```
 
 ### Performance benchmark

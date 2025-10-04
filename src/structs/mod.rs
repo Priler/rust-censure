@@ -1,7 +1,9 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc};
+use parking_lot::RwLock;
 use once_cell::sync::Lazy;
 use thiserror::Error;
+use crate::lang::LangProvider;
 
 #[derive(Debug)]
 pub struct LangData {
@@ -36,31 +38,34 @@ impl LangData {
         self.beep_html
     }
 }
+//
+// #[derive(Clone, Copy, Debug)]
+// pub enum CensorLang { Ru, En }
 
-#[derive(Clone, Copy, Debug)]
-pub enum CensorLang { Ru, En }
-
-pub struct Censor {
-    pub lang: CensorLang,
+pub struct Censor<'a, L: LangProvider> {
+    pub lang: &'a L,
     pub data: LangData,
-    pub re_cache: Lazy<RwLock<HashMap<String, fancy_regex::Regex>>>
+    pub re_cache: Lazy<Arc<RwLock<HashMap<String, fancy_regex::Regex>>>>
 }
 
 #[derive(Debug, Error)]
 pub enum CensorError {
     #[error("unsupported language: {0}")]
     UnsupportedLang(String),
+
+    #[error("regex compilation failed: {0}")]
+    RegexCompilationFailed(String)
 }
 
 #[derive(Debug)]
 pub struct WordInfo {
     pub is_good: bool,
-    pub word: String,
-    pub accuse: Vec<String>,
-    pub excuse: Vec<String>,
+    pub word: Box<str>,
+    pub accuse: Vec<Box<str>>,
+    pub excuse: Vec<Box<str>>,
 }
 impl WordInfo {
-    pub fn new(word: String) -> Self {
+    pub fn new(word: Box<str>) -> Self {
         Self { is_good: true, word, accuse: vec![], excuse: vec![] }
     }
 }
@@ -70,8 +75,8 @@ pub struct CleanLineResult {
     pub line: String,
     pub bad_words_count: usize,
     pub bad_phrases_count: usize,
-    pub detected_bad_words: Vec<String>,
-    pub detected_patterns: Vec<String>,
+    pub detected_bad_words: Vec<Box<str>>,
+    pub detected_patterns: Vec<Box<str>>,
 }
 
 #[derive(Debug)]

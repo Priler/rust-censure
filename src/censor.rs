@@ -1,55 +1,59 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc};
+use parking_lot::{RwLock, RwLockWriteGuard};
 
 use super::structs::*;
 
 use crate::lang::common::{
-    NORMALIZATION_PATTERNS, PAT_SPACE, PAT_PUNCT1, PAT_PUNCT2, PAT_PUNCT3, PAT_PREP
+    NORMALIZATION_PATTERNS, PAT_PUNCT3
 };
 use crate::lang::LangProvider;
 use crate::util::{remove_duplicates, is_pi_or_e_word};
 use fancy_regex;
 
-
-impl Censor {
-    pub fn new(lang: CensorLang) -> Result<Self, CensorError> {
-        let data = match lang {
-            CensorLang::Ru => crate::lang::ru::Ru::data(),
-            CensorLang::En => crate::lang::en::En::data(),
-        };
-        Ok(Self { lang, data, re_cache: Lazy::new(|| RwLock::new(HashMap::new())) })
+impl<'a, L: LangProvider> Censor<'a, L> {
+    pub fn new(lang: &'a L) -> Result<Self, CensorError> {
+        Ok(Self {
+            lang: &lang,
+            data: lang.data(),
+            re_cache: Lazy::new(|| Arc::new(RwLock::new(HashMap::with_capacity(1000))))
+        })
     }
 
     fn is_match_cached(&self, pat: &str, text: &str) -> bool {
         // Check cache
         {
-            let cache = self.re_cache.read().unwrap();
+            let cache = self.re_cache.read();
             if let Some(r) = cache.get(pat) {
                 return r.is_match(text).unwrap_or(false)
             }
         }
 
         // Compile and cache
-        let mut cache = self.re_cache.write().unwrap();
-        let r = fancy_regex::Regex::new(pat).expect("invalid regex");
+        let r = fancy_regex::Regex::new(pat)
+            .map_err(|e| CensorError::RegexCompilationFailed(e.to_string())).unwrap();
         let res = r.is_match(text).unwrap_or(false);
-        self.cache_pattern(pat, r, &mut cache); // cache this pattern
+        {
+            let mut cache = self.re_cache.write();
+            cache.insert(pat.to_string(), r);
+        }
         res
     }
 
-    fn cache_pattern(&self, pat: &str, r: fancy_regex::Regex, cache: &mut std::sync::RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
-        // Check cache
-        if let Some(_) = cache.get(pat) {
-            return // already cached
-        }
+    // fn cache_pattern(&self, pat: &str, r: fancy_regex::Regex, cache: &mut std::sync::RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
+    //     // Check cache
+    //     if cache.contains_key(pat) {
+    //         return // already cached
+    //     }
+    //
+    //     cache.insert(pat.to_string(), r);
+    // }
 
+    fn compile_and_cache_pattern(&self, pat: &str, cache: &mut RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
+        let r = fancy_regex::Regex::new(pat)
+            .map_err(|e| CensorError::RegexCompilationFailed(e.to_string())).unwrap();
         cache.insert(pat.to_string(), r);
-    }
-
-    fn compile_and_cache_pattern(&self, pat: &str, cache: &mut std::sync::RwLockWriteGuard<HashMap<String, fancy_regex::Regex>>) {
-        let r = fancy_regex::Regex::new(pat).expect("invalid regex");
-        self.cache_pattern(pat, r, cache);
     }
 
     pub fn precompile_all_patterns(&self) {
@@ -62,7 +66,7 @@ impl Censor {
     }
 
     pub fn precompile_foul_data(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for (_, pats) in self.data.foul_data {
             for &pat in pats {
@@ -72,7 +76,7 @@ impl Censor {
     }
 
     pub fn precompile_foul_core(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for (pat, _) in self.data.foul_core {
             self.compile_and_cache_pattern(pat, &mut cache);
@@ -80,7 +84,7 @@ impl Censor {
     }
 
     pub fn precompile_bad_phrases(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for &pat in self.data.bad_phrases {
             self.compile_and_cache_pattern(pat, &mut cache);
@@ -88,7 +92,7 @@ impl Censor {
     }
 
     pub fn precompile_bad_semi_phrases(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for &pat in self.data.bad_semi_phrases {
             self.compile_and_cache_pattern(pat, &mut cache);
@@ -96,7 +100,7 @@ impl Censor {
     }
 
     pub fn precompile_excludes_core(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for (pat, _) in self.data.excludes_core {
             self.compile_and_cache_pattern(pat, &mut cache);
@@ -104,7 +108,7 @@ impl Censor {
     }
 
     pub fn precompile_excludes_data(&self) {
-        let mut cache = self.re_cache.write().unwrap();
+        let mut cache = self.re_cache.write();
 
         for (_, pats) in self.data.excludes_data {
             for &pat in pats {
@@ -113,14 +117,14 @@ impl Censor {
         }
     }
 
-    fn replace_all_cached<'a>(&self, pat: &str, text: &'a str, repl: &str) -> Option<String> {
+    fn replace_all_cached(&self, pat: &str, text: &'a str, repl: &str) -> Option<String> {
         // Quick negative guard: if it doesn't match, skip compiling/allocating a String for replace.
         if !self.is_match_cached(pat, text) {
             return None;
         }
 
         // read from cache
-        let cache = self.re_cache.read().unwrap();
+        let cache = self.re_cache.read();
         let compiled = cache.get(pat).unwrap();
 
         // replace
@@ -128,59 +132,8 @@ impl Censor {
         if replaced == text { None } else { Some(replaced) }
     }
 
-    fn split_line_ru(&self, line: &str) -> Vec<String> {
-        // port of CensorRu._split_line: remove punctuation1, then punctuation2 -> space
-        let step1 = PAT_PUNCT1.replace_all(line, "");
-        let step2 = PAT_PUNCT2.replace_all(&step1, " ");
-        let mut buf = String::new();
-        let mut out = Vec::new();
-
-        for w in PAT_SPACE.split(&step2) {
-            let w = w.unwrap();
-
-            if w.is_empty() { continue; }
-            if w.chars().count() < 3 && !PAT_PREP.is_match(w).unwrap_or(false) {
-                buf.push_str(w);
-            } else {
-                if !buf.is_empty() {
-                    out.push(std::mem::take(&mut buf));
-                }
-                out.push(w.to_string());
-            }
-        }
-        if !buf.is_empty() { out.push(buf); }
-        out
-    }
-
-    fn split_line_en(&self, line: &str) -> Vec<String> {
-        // behave like CensorEn._split_line
-        let step1 = PAT_PUNCT1.replace_all(line, "");
-        let step2 = PAT_PUNCT2.replace_all(&step1, " ");
-        let mut buf = String::new();
-        let mut out = Vec::new();
-
-        for w in PAT_SPACE.split(&step2) {
-            let w = w.unwrap();
-
-            if w.is_empty() { continue; }
-            if w.chars().count() < 3 {
-                buf.push_str(w);
-            } else {
-                if !buf.is_empty() {
-                    out.push(std::mem::take(&mut buf));
-                }
-                out.push(w.to_string());
-            }
-        }
-        if !buf.is_empty() { out.push(buf); }
-        out
-    }
-
     fn split_line(&self, s: &str) -> Vec<String> {
-        match self.lang {
-            CensorLang::Ru => self.split_line_ru(s),
-            CensorLang::En => self.split_line_en(s),
-        }
+        self.lang.split_line(s)
     }
 
     fn prepare_word(&self, mut w: String) -> String {
@@ -204,27 +157,21 @@ impl Censor {
 
     pub fn is_word_good(&self, raw: &str) -> bool {
         let w = self.prepare_word(raw.to_string());
-        self.check_word_impl(&w).is_good
+        self.check_word_impl_fast(&w)
     }
 
-    fn check_word_impl(&self, prepared: &str) -> WordInfo {
-        let mut info = WordInfo::new(prepared.to_string());
+    fn check_word_impl(&self, prepared: &String) -> WordInfo {
+        let mut info = WordInfo::new(Box::from(prepared.as_str()));
 
-        // Keys in your maps are &str, so we need to build a string from the first character
-        let fl_str = prepared.chars().next().map(|c| {
-            // Important: make a one-character string
-            // (if you want grapheme-cluster support, use unicode-segmentation instead)
-            let mut s = String::new();
-            s.push(c);
-            s
-        }).unwrap_or_default();
+        // Build a string from the first character
+        let fl_str = String::from(info.word.chars().next().map(|c| c.to_string()).unwrap_or_default());
 
         // 1) Accuse stage: FOUL_DATA[first_letter]
         if let Some(pats) = self.data.foul_data.get(fl_str.as_str()) {
             for &pat in pats {
-                if self.is_match_cached(pat, prepared) {
+                if self.is_match_cached(pat, &info.word) {
                     info.is_good = false;
-                    info.accuse.push(pat.to_string()); // now stored as a string rule
+                    info.accuse.push(Box::from(pat)); // now stored as a string rule
                     break;
                 }
             }
@@ -235,7 +182,7 @@ impl Censor {
             for (&_key, &pat) in self.data.foul_core.iter() {
                 if self.is_match_cached(pat, prepared) {
                     info.is_good = false;
-                    info.accuse.push(pat.to_string());
+                    info.accuse.push(Box::from(pat));
                     break;
                 }
             }
@@ -246,7 +193,7 @@ impl Censor {
             for &pat in self.data.bad_semi_phrases.iter() {
                 if self.is_match_cached(pat, prepared) {
                     info.is_good = false;
-                    info.accuse.push(pat.to_string());
+                    info.accuse.push(Box::from(pat));
                     break;
                 }
             }
@@ -258,7 +205,7 @@ impl Censor {
             for (&_key, &pat) in self.data.excludes_core.iter() {
                 if self.is_match_cached(pat, prepared) {
                     info.is_good = true;
-                    info.excuse.push(pat.to_string());
+                    info.excuse.push(Box::from(pat));
                     break;
                 }
             }
@@ -268,7 +215,7 @@ impl Censor {
                     for &pat in pats {
                         if self.is_match_cached(pat, prepared) {
                             info.is_good = true;
-                            info.excuse.push(pat.to_string());
+                            info.excuse.push(Box::from(pat));
                             break;
                         }
                     }
@@ -279,6 +226,52 @@ impl Censor {
         info
     }
 
+    fn check_word_impl_fast(&self, prepared: &str) -> bool {
+        // Fast path: only check if word is good, no detailed info
+        let fl_str = String::from(prepared.chars().next().map(|c| c.to_string()).unwrap_or_default());
+
+        // 1) Accuse stage: FOUL_DATA[first_letter]
+        if let Some(pats) = self.data.foul_data.get(fl_str.as_str()) {
+            for &pat in pats {
+                if self.is_match_cached(pat, prepared) {
+                    return false;
+                }
+            }
+        }
+
+        // 2) If still good → check FOUL_CORE
+        for (&_key, &pat) in self.data.foul_core.iter() {
+            if self.is_match_cached(pat, prepared) {
+                return false;
+            }
+        }
+
+        // 3) If still good → check BAD_SEMI_PHRASES
+        for &pat in self.data.bad_semi_phrases.iter() {
+            if self.is_match_cached(pat, prepared) {
+                return false;
+            }
+        }
+
+        // 4) Excuse stage: if already accused, check exceptions
+        // EXCLUDES_CORE
+        for (&_key, &pat) in self.data.excludes_core.iter() {
+            if self.is_match_cached(pat, prepared) {
+                return true;
+            }
+        }
+        // EXCLUDES_DATA[first_letter]
+        if let Some(pats) = self.data.excludes_data.get(fl_str.as_str()) {
+            for &pat in pats {
+                if self.is_match_cached(pat, prepared) {
+                    return true;
+                }
+            }
+        }
+
+        false // bad word
+    }
+
     /// returns replaced line plus counts
     pub fn clean_line(&self, line: &str) -> CleanLineResult {
         // Mutable working buffer that accumulates changes
@@ -287,8 +280,8 @@ impl Censor {
         // Counters and diagnostics
         let mut bad_words = 0usize;
         let mut bad_phrases = 0usize;
-        let mut detected_words = Vec::new();
-        let mut detected_pats = Vec::new();
+        let mut detected_words: Vec<Box<str>> = Vec::with_capacity(5);
+        let mut detected_pats = Vec::with_capacity(5);
 
         // 1) Word-by-word replacement (first hit per surface word):
         //
@@ -302,7 +295,7 @@ impl Censor {
             if !info.is_good {
                 bad_words += 1;
                 out = out.replacen(&word, self.data.beep, 1);
-                detected_words.push(word);
+                detected_words.push(Box::from(word.as_str()));
                 if let Some(p) = info.accuse.get(0) {
                     detected_pats.push(p.clone());
                 }
@@ -317,7 +310,7 @@ impl Censor {
         for &pat in self.data.bad_semi_phrases.iter() {
             if let Some(new_out) = self.replace_all_cached(pat, &out, self.data.beep) {
                 bad_phrases += 1;
-                detected_pats.push(pat.to_string());
+                detected_pats.push(Box::from(pat));
                 out = new_out;
             }
         }
@@ -326,7 +319,7 @@ impl Censor {
         for &pat in self.data.bad_phrases.iter() {
             if let Some(new_out) = self.replace_all_cached(pat, &out, self.data.beep) {
                 bad_phrases += 1;
-                detected_pats.push(pat.to_string());
+                detected_pats.push(Box::from(pat));
                 out = new_out;
             }
         }
@@ -342,6 +335,7 @@ impl Censor {
 
     /// Clean an HTML string while preserving tags and replacing bad words with `beep_html`.
     /// @TODO: Rewrite the implementation, so it'll work with any HTML tags (incl broken etc).
+    /// Use a proper HTML parser like scraper or kuchiki
     pub fn clean_html_line(&self, line: &str) -> CleanHtmlResult {
         use crate::html::{tokenize_html, TokType, Token};
 

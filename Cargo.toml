@@ -1,6 +1,6 @@
 [package]
 name = "rust-censure"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 description = "Simple profanity filter."
 license = "GPL-3.0-only"
@@ -15,6 +15,7 @@ fancy-regex = "0.16.2"
 once_cell = "1.19"
 # aho-corasick = "1.1"    # optional, for faster simple replaces (can skip)
 thiserror = "2.0.17"
+parking_lot = "0.12.4"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
